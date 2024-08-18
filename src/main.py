@@ -1,64 +1,114 @@
+from fastapi import FastAPI, HTTPException
 import pandas as pd
-from fastapi import FastAPI
-
-# Cargar los datasets correctos
-movies_df = pd.read_csv('movies_dataset_transformed.csv')
-credits_df = pd.read_csv('filtered_credits.csv')
-
-# Convertir 'release_date' a datetime
-movies_df['release_date'] = pd.to_datetime(movies_df['release_date'])
+from datetime import datetime
 
 app = FastAPI()
 
-@app.get("/cantidad_filmaciones_mes/{mes}")
+# Cargar los datasets
+movies_df = pd.read_csv('data/movies_dataset_transformed.csv')
+credits_df = pd.read_csv('data/filtered_credits.csv')
+
+# Asegurarse de que las fechas están en el formato adecuado
+movies_df['release_date'] = pd.to_datetime(movies_df['release_date'], errors='coerce')
+movies_df['release_year'] = movies_df['release_date'].dt.year
+movies_df['release_month'] = movies_df['release_date'].dt.month
+movies_df['release_day'] = movies_df['release_date'].dt.day
+
+@app.get("/cantidad_filmaciones_mes")
 def cantidad_filmaciones_mes(mes: str):
-    mes = mes.lower()
-    movies_df['mes'] = movies_df['release_date'].dt.strftime('%B').str.lower()
-    cantidad = movies_df[movies_df['mes'] == mes].shape[0]
-    return f"{cantidad} películas fueron estrenadas en el mes de {mes.capitalize()}."
+    meses_esp = {
+        'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4, 'mayo': 5,
+        'junio': 6, 'julio': 7, 'agosto': 8, 'septiembre': 9,
+        'octubre': 10, 'noviembre': 11, 'diciembre': 12
+    }
+    mes_num = meses_esp.get(mes.lower())
+    if mes_num is None:
+        raise HTTPException(status_code=400, detail="Mes inválido")
+    
+    cantidad = movies_df[movies_df['release_month'] == mes_num].shape[0]
+    return {"mensaje": f"{cantidad} cantidad de películas fueron estrenadas en el mes de {mes}"}
 
-@app.get("/cantidad_filmaciones_dia/{dia}")
+@app.get("/cantidad_filmaciones_dia")
 def cantidad_filmaciones_dia(dia: str):
-    dia = dia.lower()
-    movies_df['dia'] = movies_df['release_date'].dt.strftime('%A').str.lower()
-    cantidad = movies_df[movies_df['dia'] == dia].shape[0]
-    return f"{cantidad} películas fueron estrenadas en los días {dia.capitalize()}."
+    dias_esp = {
+        'lunes': 1, 'martes': 2, 'miércoles': 3, 'jueves': 4, 'viernes': 5,
+        'sábado': 6, 'domingo': 7
+    }
+    dia_num = dias_esp.get(dia.lower())
+    if dia_num is None:
+        raise HTTPException(status_code=400, detail="Día inválido")
+    
+    # Convertir a números de semana: 1 (lunes) a 7 (domingo)
+    movies_df['day_of_week'] = movies_df['release_date'].dt.dayofweek + 1
+    cantidad = movies_df[movies_df['day_of_week'] == dia_num].shape[0]
+    return {"mensaje": f"{cantidad} cantidad de películas fueron estrenadas en los días {dia}"}
 
-@app.get("/score_titulo/{titulo}")
-def score_titulo(titulo: str):
-    pelicula = movies_df[movies_df['title'].str.contains(titulo, case=False, na=False)]
+@app.get("/score_titulo")
+def score_titulo(titulo_de_la_filmacion: str):
+    pelicula = movies_df[movies_df['title'].str.lower() == titulo_de_la_filmacion.lower()]
     if pelicula.empty:
-        return "Película no encontrada"
-    pelicula = pelicula.iloc[0]
-    return f"La película {pelicula['title']} fue estrenada en el año {pelicula['release_year']} con un score/popularidad de {pelicula['popularity']}."
+        raise HTTPException(status_code=404, detail="Película no encontrada")
+    
+    pelicula_info = pelicula.iloc[0]
+    return {
+        "titulo": pelicula_info['title'],
+        "ano": pelicula_info['release_year'],
+        "score": pelicula_info['vote_average']
+    }
 
-@app.get("/votos_titulo/{titulo}")
-def votos_titulo(titulo: str):
-    pelicula = movies_df[movies_df['title'].str.contains(titulo, case=False, na=False)]
+@app.get("/votos_titulo")
+def votos_titulo(titulo_de_la_filmacion: str):
+    pelicula = movies_df[movies_df['title'].str.lower() == titulo_de_la_filmacion.lower()]
     if pelicula.empty:
-        return "Película no encontrada"
-    pelicula = pelicula.iloc[0]
-    if pelicula['vote_count'] < 2000:
-        return "La película no tiene suficientes valoraciones (menos de 2000)."
-    return f"La película {pelicula['title']} fue estrenada en el año {pelicula['release_year']}. Tiene un total de {pelicula['vote_count']} valoraciones, con un promedio de {pelicula['vote_average']}."
+        raise HTTPException(status_code=404, detail="Película no encontrada")
+    
+    pelicula_info = pelicula.iloc[0]
+    if pelicula_info['vote_count'] < 2000:
+        raise HTTPException(status_code=400, detail="La película no cumple con el requisito de votos")
+    
+    return {
+        "titulo": pelicula_info['title'],
+        "ano": pelicula_info['release_year'],
+        "cantidad_votos": pelicula_info['vote_count'],
+        "promedio_votos": pelicula_info['vote_average']
+    }
 
-@app.get("/get_actor/{nombre_actor}")
+@app.get("/get_actor")
 def get_actor(nombre_actor: str):
-    actor_data = credits_df[credits_df['actor_names'].apply(lambda x: nombre_actor in eval(x))]
-    if actor_data.empty:
-        return "Actor no encontrado."
-    peliculas = actor_data.merge(movies_df, on='id')[['title', 'return']]
-    cantidad_peliculas = peliculas.shape[0]
-    retorno_total = peliculas['return'].sum()
-    promedio_retorno = peliculas['return'].mean()
-    return (f"El actor {nombre_actor} ha participado en {cantidad_peliculas} películas, "
-            f"con un retorno total de {retorno_total} y un promedio de retorno de {promedio_retorno} por película.")
+    actor = credits_df[credits_df['actor_names'].str.contains(nombre_actor, case=False, na=False)]
+    if actor.empty:
+        raise HTTPException(status_code=404, detail="Actor no encontrado")
+    
+    peliculas = movies_df[movies_df['id'].isin(actor['id'])]
+    total_peliculas = len(peliculas)
+    total_revenue = peliculas['return'].sum()
+    promedio_revenue = total_revenue / total_peliculas if total_peliculas > 0 else 0
+    
+    return {
+        "nombre_actor": nombre_actor,
+        "cantidad_peliculas": total_peliculas,
+        "retorno_total": total_revenue,
+        "promedio_revenue": promedio_revenue
+    }
 
-@app.get("/get_director/{nombre_director}")
+@app.get("/get_director")
 def get_director(nombre_director: str):
-    director_data = credits_df[credits_df['director_name'] == nombre_director]
-    if director_data.empty:
-        return "Director no encontrado."
-    peliculas = director_data.merge(movies_df, on='id')[['title', 'release_date', 'return', 'budget', 'revenue']]
-    peliculas['release_date'] = pd.to_datetime(peliculas['release_date']).dt.strftime('%Y-%m-%d')
-    return peliculas.to_dict(orient='records')
+    director = credits_df[credits_df['director_name'].str.contains(nombre_director, case=False, na=False)]
+    if director.empty:
+        raise HTTPException(status_code=404, detail="Director no encontrado")
+    
+    peliculas = movies_df[movies_df['id'].isin(director['id'])]
+    resultado = []
+    for _, pelicula in peliculas.iterrows():
+        resultado.append({
+            "nombre_pelicula": pelicula['title'],
+            "fecha_lanzamiento": pelicula['release_date'].strftime('%Y-%m-%d'),
+            "retorno": pelicula['return'],
+            "costo": pelicula['budget'],
+            "ganancia": pelicula['revenue']
+        })
+    
+    return {
+        "nombre_director": nombre_director,
+        "peliculas": resultado
+    }
