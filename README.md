@@ -39,7 +39,6 @@ Este proyecto implementa una API para recomendar películas similares y ofrecer 
 1. Clonar el repositorio: 
    ```bash
    git clone https://github.com/TomasFeiertag/Proyecto-MLOps-1.git
-   Claro, aquí tienes el contenido adicional para completar tu `README.md`:
 2. Crear un entorno virtual: 
    ```bash
    python -m venv venv
