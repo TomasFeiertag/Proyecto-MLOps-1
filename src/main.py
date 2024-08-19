@@ -75,10 +75,12 @@ def votos_titulo(titulo_de_la_filmacion: str):
 
 @app.get("/get_actor")
 def get_actor(nombre_actor: str):
+    # Buscar en el dataset de créditos
     actor = credits_df[credits_df['actor_names'].str.contains(nombre_actor, case=False, na=False)]
     if actor.empty:
         raise HTTPException(status_code=404, detail="Actor no encontrado")
     
+    # Encontrar las películas correspondientes en el dataset de películas
     peliculas = movies_df[movies_df['id'].isin(actor['id'])]
     total_peliculas = len(peliculas)
     total_revenue = peliculas['return'].sum()
@@ -93,10 +95,12 @@ def get_actor(nombre_actor: str):
 
 @app.get("/get_director")
 def get_director(nombre_director: str):
+    # Buscar en el dataset de créditos
     director = credits_df[credits_df['director_name'].str.contains(nombre_director, case=False, na=False)]
     if director.empty:
         raise HTTPException(status_code=404, detail="Director no encontrado")
     
+    # Encontrar las películas correspondientes en el dataset de películas
     peliculas = movies_df[movies_df['id'].isin(director['id'])]
     resultado = []
     for _, pelicula in peliculas.iterrows():
