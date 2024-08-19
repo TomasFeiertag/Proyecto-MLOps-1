@@ -74,48 +74,52 @@ def votos_titulo(titulo_de_la_filmacion: str):
     }
 
 @app.get("/get_actor")
-def get_actor(nombre_actor: str):
-    # Buscar actor en el dataframe de créditos
-    actor = credits_df[credits_df['actor_names'].str.contains(nombre_actor, case=False, na=False)]
-    if actor.empty:
-        raise HTTPException(status_code=404, detail="Actor no encontrado")
+def get_actor_info(nombre_actor: str):
+    # Buscar los ids en los que el actor está presente
+    actor_records = credits_df[credits_df['actor_names'].apply(lambda x: nombre_actor in ast.literal_eval(x))]
     
-    # Obtener IDs de películas en las que ha actuado
-    movie_ids = actor['id'].tolist()
-    peliculas = movies_df[movies_df['id'].astype(str).isin(map(str, movie_ids))]
-    
-    # Calcular el total y promedio de revenue
+    if actor_records.empty:
+        return {"mensaje": "Actor no encontrado"}
+
+    # Obtener los ids de las películas en las que el actor ha participado
+    actor_ids = actor_records['id'].tolist()
+
+    # Buscar las películas en las que el actor ha participado
+    peliculas = movies_df[movies_df['id'].isin(actor_ids)]
+
+    # Calcular los datos requeridos
     total_peliculas = len(peliculas)
     total_revenue = peliculas['return'].sum()
     promedio_revenue = total_revenue / total_peliculas if total_peliculas > 0 else 0
-    
+
     return {
         "nombre_actor": nombre_actor,
         "cantidad_peliculas": total_peliculas,
         "retorno_total": total_revenue,
         "promedio_revenue": promedio_revenue
     }
-
 @app.get("/get_director")
-def get_director(nombre_director: str):
-    # Buscar en el dataset de créditos
-    director = credits_df[credits_df['director_name'].str.contains(nombre_director, case=False, na=False)]
-    if director.empty:
-        raise HTTPException(status_code=404, detail="Director no encontrado")
+def get_director_info(nombre_director: str):
+    # Buscar los IDs en los que el director está presente
+    director_records = credits_df[credits_df['director_name'] == nombre_director]
     
-    # Encontrar las películas correspondientes en el dataset de películas
-    peliculas = movies_df[movies_df['id'].isin(director['id'])]
-    resultado = []
-    for _, pelicula in peliculas.iterrows():
-        resultado.append({
-            "nombre_pelicula": pelicula['title'],
-            "fecha_lanzamiento": pelicula['release_date'].strftime('%Y-%m-%d'),
-            "retorno": pelicula['return'],
-            "costo": pelicula['budget'],
-            "ganancia": pelicula['revenue']
-        })
-    
+    if director_records.empty:
+        return {"mensaje": "Director no encontrado"}
+
+    # Obtener los IDs de las películas en las que el director ha trabajado
+    director_ids = director_records['id'].tolist()
+
+    # Buscar las películas en las que el director ha trabajado
+    peliculas = movies_df[movies_df['id'].isin(director_ids)]
+
+    # Calcular los datos requeridos
+    total_peliculas = len(peliculas)
+    total_revenue = peliculas['return'].sum()
+    promedio_revenue = total_revenue / total_peliculas if total_peliculas > 0 else 0
+
     return {
         "nombre_director": nombre_director,
-        "peliculas": resultado
+        "cantidad_peliculas": total_peliculas,
+        "retorno_total": total_revenue,
+        "promedio_revenue": promedio_revenue
     }
