@@ -80,6 +80,11 @@ credits_df = credits_df[credits_df['id'].apply(lambda x: str(x).isdigit())]
 movies_df['id'] = movies_df['id'].astype(int)
 credits_df['id'] = credits_df['id'].astype(int)
 
+# Convertir las columnas relevantes a minúsculas para evitar problemas con mayúsculas/minúsculas
+movies_df['title'] = movies_df['title'].str.lower()
+credits_df['actor_names'] = credits_df['actor_names'].apply(lambda x: [name.lower() for name in ast.literal_eval(x)])
+credits_df['director_name'] = credits_df['director_name'].str.lower()
+
 @app.get("/get_actor")
 def get_actor_info(nombre_actor: str):
     # Buscar los ids en los que el actor está presente
