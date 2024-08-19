@@ -78,30 +78,128 @@ La API también está desplegada en Render. Puedes acceder a la versión despleg
 [Visitar API en Render](https://proyecto-mlops-1-geib.onrender.com/docs)
 
 Endpoints Disponibles
-/cantidad_filmaciones_mes:
+### 1. **Cantidad de Filmaciones por Mes**
 
-Descripción: Devuelve la cantidad de películas estrenadas en el mes especificado.
-Parámetro: mes (Nombre del mes en español).
-/cantidad_filmaciones_dia:
+**`GET /cantidad_filmaciones_mes`**
 
-Descripción: Devuelve la cantidad de películas estrenadas en el día de la semana especificado.
-Parámetro: dia (Nombre del día en español).
-/score_titulo:
+Obtiene la cantidad de películas estrenadas en un mes específico.
 
-Descripción: Devuelve la puntuación promedio de una película dada.
-Parámetro: titulo_de_la_filmacion (Título de la película).
-/votos_titulo:
+**Parámetro de consulta:**
+- `mes` (string): Nombre del mes en español (e.g., "enero", "febrero").
 
-Descripción: Devuelve la cantidad y promedio de votos de una película, si tiene más de 2000 votos.
-Parámetro: titulo_de_la_filmacion (Título de la película).
-/get_actor:
+**Respuesta:**
+```json
+{
+    "mensaje": "X cantidad de películas fueron estrenadas en el mes de Mes"
+}
+```
 
-Descripción: Devuelve información sobre un actor, incluyendo la cantidad de películas en las que ha participado y el retorno total y promedio de las películas.
-Parámetro: nombre_actor (Nombre del actor).
-/get_director:
+### 2. **Cantidad de Filmaciones por Día de la Semana**
 
-Descripción: Devuelve información sobre un director, incluyendo una lista de películas que ha dirigido con detalles como retorno, costo y ganancia.
-Parámetro: nombre_director (Nombre del director).
+**`GET /cantidad_filmaciones_dia`**
+
+Obtiene la cantidad de películas estrenadas en un día específico de la semana.
+
+**Parámetro de consulta:**
+- `dia` (string): Nombre del día en español (e.g., "lunes", "martes").
+
+**Respuesta:**
+```json
+{
+    "mensaje": "X cantidad de películas fueron estrenadas en los días Día"
+}
+```
+
+### 3. **Puntuación de una Película**
+
+**`GET /score_titulo`**
+
+Obtiene la puntuación (score) de una película específica.
+
+**Parámetro de consulta:**
+- `titulo_de_la_filmacion` (string): Título de la película.
+
+**Respuesta:**
+```json
+{
+    "titulo": "Título de la Película",
+    "ano": Año de Estreno,
+    "score": Puntuación
+}
+```
+
+### 4. **Votos de una Película**
+
+**`GET /votos_titulo`**
+
+Obtiene el número total de votos y el promedio de votos de una película específica. Solo devuelve información si la película tiene al menos 2000 votos.
+
+**Parámetro de consulta:**
+- `titulo_de_la_filmacion` (string): Título de la película.
+
+**Respuesta:**
+```json
+{
+    "titulo": "Título de la Película",
+    "ano": Año de Estreno,
+    "cantidad_votos": Número de Votos,
+    "promedio_votos": Promedio de Votos
+}
+```
+
+### 5. **Información del Actor**
+
+**`GET /get_actor`**
+
+Obtiene información sobre el número de películas en las que ha participado un actor, el retorno total y el promedio de retorno.
+
+**Parámetro de consulta:**
+- `nombre_actor` (string): Nombre del actor.
+
+**Respuesta:**
+```json
+{
+    "nombre_actor": "Nombre del Actor",
+    "cantidad_peliculas": Número de Películas,
+    "retorno_total": Retorno Total,
+    "promedio_revenue": Promedio de Retorno
+}
+```
+
+### 6. **Información del Director**
+
+**`GET /get_director`**
+
+Obtiene información sobre el número de películas dirigidas por un director, el retorno total y el promedio de retorno.
+
+**Parámetro de consulta:**
+- `nombre_director` (string): Nombre del director.
+
+**Respuesta:**
+```json
+{
+    "nombre_director": "Nombre del Director",
+    "cantidad_peliculas": Número de Películas,
+    "retorno_total": Retorno Total,
+    "promedio_revenue": Promedio de Retorno
+}
+```
+
+### 7. **Recomendación de Películas**
+
+**`GET /recomendacion`**
+
+Obtiene una lista de 5 películas similares basadas en la similitud de puntuación con una película dada.
+
+**Parámetro de consulta:**
+- `titulo` (string): Título de la película para la cual se desea obtener recomendaciones.
+
+**Respuesta:**
+```json
+{
+    "recomendaciones": ["Película 1", "Película 2", "Película 3", "Película 4", "Película 5"]
+}
+```
 
 ## Datos y Fuentes
 
