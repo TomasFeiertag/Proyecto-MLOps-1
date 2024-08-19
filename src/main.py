@@ -20,6 +20,9 @@ movies_df['title'] = movies_df['title'].str.lower()
 credits_df['actor_names'] = credits_df['actor_names'].apply(lambda x: [name.lower() for name in ast.literal_eval(x)])
 credits_df['director_name'] = credits_df['director_name'].str.lower()
 
+# Crear la columna 'title_lower' para facilitar la búsqueda de títulos
+movies_df['title_lower'] = movies_df['title'].str.lower()
+
 @app.get("/cantidad_filmaciones_mes")
 def cantidad_filmaciones_mes(mes: str):
     meses_esp = {
@@ -143,9 +146,12 @@ def recomendacion(titulo: str):
     # Convertir el título de la película a minúsculas para hacer la búsqueda insensible a mayúsculas
     titulo = titulo.lower()
     
+    # Normalizar los títulos en el dataframe
+    movies_df['title_lower'] = movies_df['title'].str.lower()
+    
     # Buscar la película en el DataFrame
     if titulo not in movies_df['title_lower'].values:
-        raise HTTPException(status_code=404, detail="Película no encontrada.")
+        raise HTTPException(status_code=404, detail="La película no se encuentra en el dataset.")
     
     # Obtener el puntaje de la película de entrada
     pelicula = movies_df[movies_df['title_lower'] == titulo].iloc[0]
