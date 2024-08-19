@@ -138,3 +138,26 @@ def get_director_info(nombre_director: str):
         "retorno_total": total_revenue,
         "promedio_revenue": promedio_revenue
     }
+@app.get("/recomendacion")
+def recomendacion(titulo: str):
+    # Convertir el título de la película a minúsculas para hacer la búsqueda insensible a mayúsculas
+    titulo = titulo.lower()
+    
+    # Buscar la película en el DataFrame
+    if titulo not in movies_df['title_lower'].values:
+        raise HTTPException(status_code=404, detail="Película no encontrada.")
+    
+    # Obtener el puntaje de la película de entrada
+    pelicula = movies_df[movies_df['title_lower'] == titulo].iloc[0]
+    puntuacion_pelicula = pelicula['vote_average']
+    
+    # Calcular la similitud basada en el puntaje
+    movies_df['similarity'] = abs(movies_df['vote_average'] - puntuacion_pelicula)
+    
+    # Obtener las 5 películas más similares (ordenadas por la menor diferencia en puntuación)
+    similares = movies_df.sort_values(by='similarity').head(6)  # Incluye la propia película
+    similares = similares[similares['title_lower'] != titulo]  # Excluir la propia película
+    top_similares = similares.head(5)  # Obtener las 5 más similares
+    
+    # Devolver una lista con los nombres de las películas recomendadas
+    return {"recomendaciones": top_similares['title'].tolist()}
