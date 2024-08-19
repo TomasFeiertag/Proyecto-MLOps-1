@@ -14,7 +14,6 @@ Este proyecto se enfoca en la creación de un sistema de recomendación de pelí
 5. [Datos y Fuentes](#datos-y-fuentes)
 6. [Metodología](#metodología)
 7. [Resultados y Conclusiones](#resultados-y-conclusiones)
-8. [Contribución y Colaboración](#contribución-y-colaboración)
 
 ## Introducción
 
