@@ -74,6 +74,12 @@ def votos_titulo(titulo_de_la_filmacion: str):
         "promedio_votos": pelicula_info['vote_average']
     }
 
+# Limpiar y convertir IDs
+movies_df = movies_df[movies_df['id'].apply(lambda x: str(x).isdigit())]
+credits_df = credits_df[credits_df['id'].apply(lambda x: str(x).isdigit())]
+movies_df['id'] = movies_df['id'].astype(int)
+credits_df['id'] = credits_df['id'].astype(int)
+
 @app.get("/get_actor")
 def get_actor_info(nombre_actor: str):
     # Buscar los ids en los que el actor está presente
