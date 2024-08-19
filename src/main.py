@@ -75,13 +75,16 @@ def votos_titulo(titulo_de_la_filmacion: str):
 
 @app.get("/get_actor")
 def get_actor(nombre_actor: str):
-    # Buscar en el dataset de créditos
+    # Buscar actor en el dataframe de créditos
     actor = credits_df[credits_df['actor_names'].str.contains(nombre_actor, case=False, na=False)]
     if actor.empty:
         raise HTTPException(status_code=404, detail="Actor no encontrado")
     
-    # Encontrar las películas correspondientes en el dataset de películas
-    peliculas = movies_df[movies_df['id'].isin(actor['id'])]
+    # Obtener IDs de películas en las que ha actuado
+    movie_ids = actor['id'].tolist()
+    peliculas = movies_df[movies_df['id'].astype(str).isin(map(str, movie_ids))]
+    
+    # Calcular el total y promedio de revenue
     total_peliculas = len(peliculas)
     total_revenue = peliculas['return'].sum()
     promedio_revenue = total_revenue / total_peliculas if total_peliculas > 0 else 0
