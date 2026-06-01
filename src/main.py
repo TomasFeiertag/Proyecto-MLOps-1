@@ -1,169 +1,188 @@
 from fastapi import FastAPI, HTTPException
 import pandas as pd
-from datetime import datetime
+import numpy as np
 import ast
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
-app = FastAPI()
+app = FastAPI(
+    title="Movie Recommendation API",
+    description="ML-powered REST API for movie queries and content-based recommendations.",
+    version="1.1.0",
+)
 
-# Cargar los datasets
+# ---------------------------------------------------------------------------
+# Load & prepare data (runs once at startup)
+# ---------------------------------------------------------------------------
+
 movies_df = pd.read_csv('data/movies_dataset_transformed.csv')
 credits_df = pd.read_csv('data/filtered_credits.csv')
 
-# Asegurarse de que las fechas están en el formato adecuado
+# Parse dates and derive calendar columns
 movies_df['release_date'] = pd.to_datetime(movies_df['release_date'], errors='coerce')
 movies_df['release_year'] = movies_df['release_date'].dt.year
 movies_df['release_month'] = movies_df['release_date'].dt.month
-movies_df['release_day'] = movies_df['release_date'].dt.day
+movies_df['day_of_week'] = movies_df['release_date'].dt.dayofweek + 1  # 1=Mon … 7=Sun
 
-# Convertir las columnas relevantes a minúsculas para evitar problemas con mayúsculas/minúsculas
-movies_df['title'] = movies_df['title'].str.lower()
-credits_df['actor_names'] = credits_df['actor_names'].apply(lambda x: [name.lower() for name in ast.literal_eval(x)])
+# Normalise text lookups
+movies_df['title_lower'] = movies_df['title'].str.lower()
+credits_df['actor_names'] = credits_df['actor_names'].apply(
+    lambda x: [n.lower() for n in ast.literal_eval(x)]
+)
 credits_df['director_name'] = credits_df['director_name'].str.lower()
 
-# Crear la columna 'title_lower' para facilitar la búsqueda de títulos
-movies_df['title_lower'] = movies_df['title'].str.lower()
+# Clean IDs and cast to int
+movies_df = movies_df[movies_df['id'].apply(lambda x: str(x).isdigit())].copy()
+credits_df = credits_df[credits_df['id'].apply(lambda x: str(x).isdigit())].copy()
+movies_df['id'] = movies_df['id'].astype(int)
+credits_df['id'] = credits_df['id'].astype(int)
+movies_df.reset_index(drop=True, inplace=True)
+
+# ---------------------------------------------------------------------------
+# Pre-compute TF-IDF cosine similarity matrix for recommendations
+# ---------------------------------------------------------------------------
+
+def _build_content_string(row: pd.Series) -> str:
+    """Combine genres and overview into a single string for TF-IDF."""
+    genres = str(row.get('genres', '') or '')
+    overview = str(row.get('overview', '') or '')
+    # Weight genres more by repeating them
+    return f"{genres} {genres} {overview}"
+
+movies_df['content'] = movies_df.apply(_build_content_string, axis=1)
+
+tfidf = TfidfVectorizer(stop_words='english', max_features=10_000)
+tfidf_matrix = tfidf.fit_transform(movies_df['content'])
+cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
+
+# Map title_lower -> DataFrame index for fast lookups
+title_to_idx: dict[str, int] = pd.Series(
+    movies_df.index, index=movies_df['title_lower']
+).to_dict()
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+MESES_ESP = {
+    'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
+    'mayo': 5, 'junio': 6, 'julio': 7, 'agosto': 8,
+    'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12,
+}
+
+DIAS_ESP = {
+    'lunes': 1, 'martes': 2, 'miércoles': 3, 'jueves': 4,
+    'viernes': 5, 'sábado': 6, 'domingo': 7,
+}
+
 
 @app.get("/cantidad_filmaciones_mes")
 def cantidad_filmaciones_mes(mes: str):
-    meses_esp = {
-        'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4, 'mayo': 5,
-        'junio': 6, 'julio': 7, 'agosto': 8, 'septiembre': 9,
-        'octubre': 10, 'noviembre': 11, 'diciembre': 12
-    }
-    mes_num = meses_esp.get(mes.lower())  # Convertir a minúsculas
+    mes_num = MESES_ESP.get(mes.lower())
     if mes_num is None:
-        raise HTTPException(status_code=400, detail="Mes inválido")
-    
-    cantidad = movies_df[movies_df['release_month'] == mes_num].shape[0]
-    return {"mensaje": f"{cantidad} cantidad de películas fueron estrenadas en el mes de {mes.capitalize()}"}
+        raise HTTPException(status_code=400, detail=f"Mes inválido: '{mes}'")
+    cantidad = int((movies_df['release_month'] == mes_num).sum())
+    return {"mensaje": f"{cantidad} películas fueron estrenadas en {mes.capitalize()}"}
+
 
 @app.get("/cantidad_filmaciones_dia")
 def cantidad_filmaciones_dia(dia: str):
-    dias_esp = {
-        'lunes': 1, 'martes': 2, 'miércoles': 3, 'jueves': 4, 'viernes': 5,
-        'sábado': 6, 'domingo': 7
-    }
-    dia_num = dias_esp.get(dia.lower())  # Convertir a minúsculas
+    dia_num = DIAS_ESP.get(dia.lower())
     if dia_num is None:
-        raise HTTPException(status_code=400, detail="Día inválido")
-    
-    # Convertir a números de semana: 1 (lunes) a 7 (domingo)
-    movies_df['day_of_week'] = movies_df['release_date'].dt.dayofweek + 1
-    cantidad = movies_df[movies_df['day_of_week'] == dia_num].shape[0]
-    return {"mensaje": f"{cantidad} cantidad de películas fueron estrenadas en los días {dia.capitalize()}"}
+        raise HTTPException(status_code=400, detail=f"Día inválido: '{dia}'")
+    cantidad = int((movies_df['day_of_week'] == dia_num).sum())
+    return {"mensaje": f"{cantidad} películas fueron estrenadas los días {dia.capitalize()}"}
+
 
 @app.get("/score_titulo")
 def score_titulo(titulo_de_la_filmacion: str):
-    pelicula = movies_df[movies_df['title'] == titulo_de_la_filmacion.lower()]  # Convertir a minúsculas
-    if pelicula.empty:
+    mask = movies_df['title_lower'] == titulo_de_la_filmacion.lower()
+    if not mask.any():
         raise HTTPException(status_code=404, detail="Película no encontrada")
-    
-    pelicula_info = pelicula.iloc[0]
+    row = movies_df[mask].iloc[0]
     return {
-        "titulo": pelicula_info['title'].capitalize(),
-        "ano": pelicula_info['release_year'],
-        "score": pelicula_info['vote_average']
+        "titulo": row['title'],
+        "ano": int(row['release_year']) if pd.notna(row['release_year']) else None,
+        "score": row['vote_average'],
     }
+
 
 @app.get("/votos_titulo")
 def votos_titulo(titulo_de_la_filmacion: str):
-    pelicula = movies_df[movies_df['title'] == titulo_de_la_filmacion.lower()]  # Convertir a minúsculas
-    if pelicula.empty:
+    mask = movies_df['title_lower'] == titulo_de_la_filmacion.lower()
+    if not mask.any():
         raise HTTPException(status_code=404, detail="Película no encontrada")
-    
-    pelicula_info = pelicula.iloc[0]
-    if pelicula_info['vote_count'] < 2000:
-        raise HTTPException(status_code=400, detail="La película no cumple con el requisito de votos")
-    
+    row = movies_df[mask].iloc[0]
+    if row['vote_count'] < 2000:
+        raise HTTPException(
+            status_code=400,
+            detail=f"La película tiene {int(row['vote_count'])} votos (mínimo requerido: 2000)"
+        )
     return {
-        "titulo": pelicula_info['title'].capitalize(),
-        "ano": pelicula_info['release_year'],
-        "cantidad_votos": pelicula_info['vote_count'],
-        "promedio_votos": pelicula_info['vote_average']
+        "titulo": row['title'],
+        "ano": int(row['release_year']) if pd.notna(row['release_year']) else None,
+        "cantidad_votos": int(row['vote_count']),
+        "promedio_votos": row['vote_average'],
     }
 
-# Limpiar y convertir IDs
-movies_df = movies_df[movies_df['id'].apply(lambda x: str(x).isdigit())]
-credits_df = credits_df[credits_df['id'].apply(lambda x: str(x).isdigit())]
-movies_df['id'] = movies_df['id'].astype(int)
-credits_df['id'] = credits_df['id'].astype(int)
 
 @app.get("/get_actor")
 def get_actor_info(nombre_actor: str):
-    nombre_actor = nombre_actor.lower()  # Convertir a minúsculas
-    # Buscar los ids en los que el actor está presente
+    nombre_actor = nombre_actor.lower()
     actor_records = credits_df[credits_df['actor_names'].apply(lambda x: nombre_actor in x)]
-    
     if actor_records.empty:
-        return {"mensaje": "Actor no encontrado"}
+        raise HTTPException(status_code=404, detail="Actor no encontrado")
 
-    # Obtener los ids de las películas en las que el actor ha participado
     actor_ids = actor_records['id'].tolist()
-
-    # Buscar las películas en las que el actor ha participado
     peliculas = movies_df[movies_df['id'].isin(actor_ids)]
-
-    # Calcular los datos requeridos
-    total_peliculas = len(peliculas)
-    total_revenue = peliculas['return'].sum()
-    promedio_revenue = total_revenue / total_peliculas if total_peliculas > 0 else 0
+    total = len(peliculas)
+    total_revenue = float(peliculas['return'].sum())
+    promedio = total_revenue / total if total > 0 else 0.0
 
     return {
-        "nombre_actor": nombre_actor.capitalize(),
-        "cantidad_peliculas": total_peliculas,
+        "nombre_actor": nombre_actor.title(),
+        "cantidad_peliculas": total,
         "retorno_total": total_revenue,
-        "promedio_revenue": promedio_revenue
+        "promedio_revenue": promedio,
     }
+
 
 @app.get("/get_director")
 def get_director_info(nombre_director: str):
-    nombre_director = nombre_director.lower()  # Convertir a minúsculas
-    # Buscar los IDs en los que el director está presente
+    nombre_director = nombre_director.lower()
     director_records = credits_df[credits_df['director_name'] == nombre_director]
-    
     if director_records.empty:
-        return {"mensaje": "Director no encontrado"}
+        raise HTTPException(status_code=404, detail="Director no encontrado")
 
-    # Obtener los IDs de las películas en las que el director ha trabajado
     director_ids = director_records['id'].tolist()
-
-    # Buscar las películas en las que el director ha trabajado
     peliculas = movies_df[movies_df['id'].isin(director_ids)]
-
-    # Calcular los datos requeridos
-    total_peliculas = len(peliculas)
-    total_revenue = peliculas['return'].sum()
-    promedio_revenue = total_revenue / total_peliculas if total_peliculas > 0 else 0
+    total = len(peliculas)
+    total_revenue = float(peliculas['return'].sum())
+    promedio = total_revenue / total if total > 0 else 0.0
 
     return {
-        "nombre_director": nombre_director.capitalize(),
-        "cantidad_peliculas": total_peliculas,
+        "nombre_director": nombre_director.title(),
+        "cantidad_peliculas": total,
         "retorno_total": total_revenue,
-        "promedio_revenue": promedio_revenue
+        "promedio_revenue": promedio,
     }
+
+
 @app.get("/recomendacion")
 def recomendacion(titulo: str):
-    # Convertir el título de la película a minúsculas para hacer la búsqueda insensible a mayúsculas
-    titulo = titulo.lower()
-    
-    # Normalizar los títulos en el dataframe
-    movies_df['title_lower'] = movies_df['title'].str.lower()
-    
-    # Buscar la película en el DataFrame
-    if titulo not in movies_df['title_lower'].values:
+    """
+    Returns 5 movies similar to the given title using TF-IDF cosine similarity
+    computed over genres and overview.
+    """
+    titulo_lower = titulo.lower()
+    idx = title_to_idx.get(titulo_lower)
+    if idx is None:
         raise HTTPException(status_code=404, detail="La película no se encuentra en el dataset.")
-    
-    # Obtener el puntaje de la película de entrada
-    pelicula = movies_df[movies_df['title_lower'] == titulo].iloc[0]
-    puntuacion_pelicula = pelicula['vote_average']
-    
-    # Calcular la similitud basada en el puntaje
-    movies_df['similarity'] = abs(movies_df['vote_average'] - puntuacion_pelicula)
-    
-    # Obtener las 5 películas más similares (ordenadas por la menor diferencia en puntuación)
-    similares = movies_df.sort_values(by='similarity').head(6)  # Incluye la propia película
-    similares = similares[similares['title_lower'] != titulo]  # Excluir la propia película
-    top_similares = similares.head(5)  # Obtener las 5 más similares
-    
-    # Devolver una lista con los nombres de las películas recomendadas
-    return {"recomendaciones": top_similares['title'].tolist()}
+
+    # Get similarity scores for this movie vs all others (read-only, thread-safe)
+    sim_scores = list(enumerate(cosine_sim[idx]))
+    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+
+    # Skip index 0 (the movie itself) and take next 5
+    top_indices = [i for i, _ in sim_scores[1:6]]
+    return {"recomendaciones": movies_df['title'].iloc[top_indices].tolist()}
