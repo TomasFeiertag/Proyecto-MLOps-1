@@ -10,12 +10,6 @@
 
 </div>
 
-<div align="center">
-
-🚀 **[Live API on Render →](https://proyecto-mlops-1-geib.onrender.com/docs)**
-
-</div>
-
 ---
 
 ## 📌 Overview
