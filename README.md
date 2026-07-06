@@ -1,4 +1,4 @@
-<img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=0:009688,100:0d1117&height=180&section=header&text=Movie%20Recommendation%20API&fontSize=40&fontColor=ffffff&animation=twinkling&fontAlignY=38&desc=ML-powered%20REST%20API%20%7C%20FastAPI%20%2B%20Scikit-learn%20%7C%20Deployed%20on%20Render&descAlignY=60&descSize=17&descColor=a8f0e8" />
+<img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=0:009688,100:0d1117&height=180&section=header&text=Movie%20Recommendation%20API&fontSize=40&fontColor=ffffff&animation=twinkling&fontAlignY=38&desc=ML-powered%20REST%20API%20%7C%20FastAPI%20%2B%20Scikit-learn&descAlignY=60&descSize=17&descColor=a8f0e8" />
 
 <div align="center">
 
@@ -6,7 +6,6 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![Scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?style=for-the-badge&logo=scikitlearn&logoColor=white)
 ![Pandas](https://img.shields.io/badge/Pandas-150458?style=for-the-badge&logo=pandas&logoColor=white)
-![Render](https://img.shields.io/badge/Render-46E3B7?style=for-the-badge&logo=render&logoColor=black)
 
 </div>
 
@@ -14,14 +13,14 @@
 
 ## 📌 Overview
 
-End-to-end MLOps project: from raw data to a **deployed REST API** that recommends similar movies using a cosine similarity model. Includes full ETL pipeline, EDA, ML model, and a production-ready FastAPI service.
+End-to-end MLOps project: from raw data to a **production-ready REST API** that recommends similar movies using a cosine similarity model. Includes full ETL pipeline, EDA, ML model, and a FastAPI service.
 
 ---
 
 ## 🔄 Pipeline
 
 ```
-Raw CSV Data ──► ETL (Pandas) ──► EDA ──► Cosine Similarity Model ──► FastAPI ──► Render Deploy
+Raw CSV Data ──► ETL (Pandas) ──► EDA ──► Cosine Similarity Model ──► FastAPI
 ```
 
 ---
@@ -62,7 +61,6 @@ GET /recomendacion?titulo=Toy Story
 | **ML Model** | Scikit-learn (cosine similarity) |
 | **API** | FastAPI, Uvicorn |
 | **Analysis** | Matplotlib, Seaborn, Jupyter |
-| **Deploy** | Render |
 
 ---
 
